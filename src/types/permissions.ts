@@ -36,14 +36,12 @@ export enum PermissionsList {
 
   ScanParcelByDriver = "scan_parcel_by_driver",
   ScanParcelByWarehouse = "scan_parcel_by_warehouse",
-  ScanParcelOutForDelivery = "scan_parcel_out_for_delivery",
   DeliverParcel = "deliver_parcel",
-  CompletePayment = "complete_payment",
   RescheduleParcel = "reschedule_parcel",
   CancelParcel = "cancel_parcel",
-  OfficeAcceptAllParcels = "office_accept_all_parcels",
 
+  OfficeAcceptAllParcels = "office_accept_all_parcels",
+  CompletePayment = "complete_payment",
   getInventory = "get_inventory",
   getShipperInventory = "get_shipper_inventory",
-  
 }

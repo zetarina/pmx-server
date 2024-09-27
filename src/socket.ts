@@ -22,11 +22,24 @@ export const initializeSocket = (httpServer: any) => {
   });
 
   io.use(authenticateSocket).on("connection", (socket) => {
-    const user = socket.data.user;
-    // console.log("A User Connected", user);
+    const user = socket.data.user;   
+    console.log(user + "connected");
     onlineUsers.set(socket.id, user);
-
     io.emit("onlineUsers", Array.from(onlineUsers.values()));
+
+    const eventHandlers = {
+      ...CityEvent,
+      ...CountryEvent,
+      ...ExchangeRateEvent,
+      ...ParcelEvent,
+      ...RoleEvent,
+      ...WarehouseEvent,
+      ...UserEvent,
+    };
+
+    Object.values(eventHandlers).forEach((event) => {
+      socket.on(event, (data) => console.log(`${event} Event:`, data));
+    });
 
     socket.on("disconnect", () => {
       onlineUsers.delete(socket.id);

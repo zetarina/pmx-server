@@ -2,7 +2,7 @@ import mongoose, { ConnectOptions } from "mongoose";
 
 const connectDB = async (): Promise<void> => {
   const options: ConnectOptions = {
-    dbName: "pmx",
+    dbName: "pmx-database",
     retryWrites: true,
     serverSelectionTimeoutMS: 5000,
   };
@@ -11,8 +11,7 @@ const connectDB = async (): Promise<void> => {
     const errorMsg = "MONGODB_URI environment variable is not defined";
     throw new Error(errorMsg);
   }
-  //SET DEBUG
-  // mongoose.set("debug", true);
+
   const uri: string = process.env.MONGODB_URI;
 
   if (mongoose.connection.readyState >= 1) {

@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import connectDB from "./db";
 import passport from "./middlewares/passport-config";
 import authRoutes from "./routes/AuthRouter";
+import dashboardRoutes from "./routes/DashboardRouter";
 import userRoutes from "./routes/UserRouter";
 import parcelRoutes from "./routes/ParcelRouter";
 import driverRoutes from "./routes/DriverRouter";
@@ -50,7 +51,9 @@ app.use(
   express.static(path.join(__dirname, "public"))
 );
 app.use("/api/auth", authRoutes);
+app.use("/api/dashboard", authenticateJWT, dashboardRoutes);
 app.use("/api/users", authenticateJWT, userRoutes);
+
 app.use("/api/parcels", authenticateJWT, parcelRoutes);
 app.use("/api/drivers", authenticateJWT, driverRoutes);
 app.use("/api/shippers", authenticateJWT, shipperRoutes);

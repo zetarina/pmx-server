@@ -355,4 +355,24 @@ export class ParcelService {
       throw new Error(`Error fetching parcels by date range: ${error.message}`);
     }
   }
+
+  async getAllParcelsForDashboard() {
+    try {
+      const totals = await this.parcelRepository.getTotalsForDashboard();
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      const monthlyData =
+        await this.parcelRepository.getMonthlyDataForDashboard(
+          startOfMonth,
+          endOfMonth
+        );
+
+      return { totals, monthlyData };
+    } catch (error) {
+      console.error("Error fetching all parcels for dashboard:", error);
+      throw new Error("Failed to fetch all parcels for dashboard");
+    }
+  }
 }

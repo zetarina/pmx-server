@@ -30,7 +30,6 @@ router.get("/:id", authorize(PermissionsList.ReadParcel), async (req, res) => {
     const parcel = await parcelService.getParcelById(id);
     res.status(200).json(parcel);
   } catch (error: any) {
-    console.log(error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -65,12 +64,9 @@ router.get(
   async (req, res) => {
     try {
       const { parcelId } = req.params;
-      console.log(parcelId);
       const parcel = await parcelService.getParcelByParcelId(parcelId);
-      console.log(parcel);
       res.status(200).json(parcel);
     } catch (error: any) {
-      console.log(error);
       res.status(500).json({ error: error.message });
     }
   }

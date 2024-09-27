@@ -284,8 +284,6 @@ export class ParcelRepository {
     type: ActionType
   ): Promise<Parcel[]> {
     try {
-      console.log(type);
-      console.log(type === ActionType.LongHaul);
       let query: any = { currentDriverId: driverId };
       if (type === ActionType.Local) {
         query.status = {
@@ -329,7 +327,7 @@ export class ParcelRepository {
           select: "-hashedPassword -salt",
           populate: [{ path: "city" }, { path: "country" }, { path: "role" }],
         });
-      console.log(parcels);
+   
       const mappedParcels = parcels.map((parcel) => parcel.toObject());
       return mappedParcels;
     } catch (error: any) {
@@ -544,6 +542,115 @@ export class ParcelRepository {
       return parcels.map((parcel) => parcel.toObject());
     } catch (error: any) {
       throw new Error(`Error fetching parcels by date range: ${error.message}`);
+    }
+  }
+  async getMonthlyDataForDashboard(startOfMonth: Date, endOfMonth: Date) {
+    try {
+      const monthlyData = await this.parcelModel.aggregate([
+        {
+          $unwind: "$trackingHistory",
+        },
+        {
+          $match: {
+            "trackingHistory.timestamp": {
+              $gte: startOfMonth,
+              $lte: endOfMonth,
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              day: { $dayOfMonth: "$trackingHistory.timestamp" },
+              status: "$trackingHistory.status",
+            },
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $sort: { "_id.day": 1 },
+        },
+      ]);
+
+      const formattedData = this.formatMonthlyData(
+        monthlyData,
+        startOfMonth,
+        endOfMonth
+      );
+      return formattedData;
+    } catch (error) {
+      console.error("Error fetching monthly data:", error);
+      throw new Error("Failed to fetch monthly data");
+    }
+  }
+
+  private formatMonthlyData(
+    monthlyData: any[],
+    startOfMonth: Date,
+    endOfMonth: Date
+  ) {
+    const daysInMonth = new Date(
+      endOfMonth.getFullYear(),
+      endOfMonth.getMonth() + 1,
+      0
+    ).getDate();
+    const formattedData: any[] = Array.from(
+      { length: daysInMonth },
+      (_, i) => ({
+        day: i + 1,
+        delivered: 0,
+        rescheduled: 0,
+        warehouse: 0,
+      })
+    );
+
+    monthlyData.forEach(({ _id, count }) => {
+      const dayIndex = _id.day - 1; // Convert to zero-based index for array
+      const status = _id.status;
+
+      // Increment the count based on the status
+      if (status === "Delivered") {
+        formattedData[dayIndex].delivered += count;
+      } else if (status === "Rescheduled") {
+        formattedData[dayIndex].rescheduled += count;
+      } else if (status === "In Warehouse") {
+        formattedData[dayIndex].warehouse += count;
+      }
+    });
+
+    return formattedData;
+  }
+  async getTotalsForDashboard() {
+    try {
+      const totals = await this.parcelModel.aggregate([
+        {
+          $group: {
+            _id: null,
+            onTheWay: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "OutForDelivery"] }, 1, 0],
+              },
+            },
+            delivered: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "Delivered"] }, 1, 0],
+              },
+            },
+            inWarehouse: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "In Warehouse"] }, 1, 0],
+              },
+            },
+          },
+        },
+      ]);
+
+      return totals.length > 0
+        ? totals[0]
+        : { onTheWay: 0, delivered: 0, inWarehouse: 0 };
+    } catch (error) {
+      console.error("Error fetching totals:", error);
+      throw new Error("Failed to fetch totals");
     }
   }
 }

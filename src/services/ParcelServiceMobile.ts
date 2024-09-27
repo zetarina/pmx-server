@@ -12,6 +12,7 @@ import { ParcelStatusChangePayload } from "../utils/socket-utils";
 
 export class ParcelServiceMobile {
   private parcelRepository: ParcelRepository;
+
   constructor() {
     this.parcelRepository = new ParcelRepository();
   }
@@ -30,6 +31,7 @@ export class ParcelServiceMobile {
         : undefined,
     };
   }
+
   private buildParcelStatusChangePayload(
     updatedParcel: Parcel
   ): ParcelStatusChangePayload {
@@ -40,32 +42,69 @@ export class ParcelServiceMobile {
       paymentStatus: updatedParcel.paymentStatus,
     };
   }
+
   async changeParcelStatus(
-    parcelId: string,
+    id: string,
     newStatus: ParcelStatus,
     driverId?: string,
     warehouseId?: string,
     paymentStatus?: PaymentStatus
   ): Promise<ParcelStatusChangePayload | null> {
-    const parcel = await this.parcelRepository.getParcelById(parcelId);
+    // Determine whether 'id' is a valid ObjectId
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+
+    // Fetch the parcel using either _id or parcelId
+    const parcel = isObjectId
+      ? await this.parcelRepository.getParcelById(id) // Use _id
+      : await this.parcelRepository.getParcelByParcelId(id); // Use parcelId
+
     if (!parcel) throw new Error("Parcel not found");
 
-    if (
-      [
-        ParcelStatus.Delivered,
-        ParcelStatus.Rescheduled,
-        ParcelStatus.Cancelled,
-      ].includes(parcel.status)
-    ) {
-      throw new Error(
-        "Delivered, Rescheduled or Cancelled parcels cannot be scanned or updated again"
-      );
+    // Handle the status `InWarehouse` - check for warehouseId change
+    if (parcel.status === ParcelStatus.InWarehouse) {
+      const lastTrackingEntry =
+        parcel.trackingHistory[parcel.trackingHistory.length - 1];
+      const lastWarehouseId = lastTrackingEntry?.warehouseId?.toString();
+
+      // If the warehouseId is the same, do not update the tracking history
+      if (warehouseId && lastWarehouseId && lastWarehouseId === warehouseId) {
+        return this.buildParcelStatusChangePayload(parcel);
+      }
     }
 
+    // Handle other statuses that depend on driverId change
+    const statusRequiringDriverCheck = [
+      ParcelStatus.OutForDelivery,
+      ParcelStatus.OnVehicle,
+      ParcelStatus.Border,
+      ParcelStatus.Delivered,
+    ];
+
+    if (statusRequiringDriverCheck.includes(parcel.status)) {
+      const lastTrackingEntry =
+        parcel.trackingHistory[parcel.trackingHistory.length - 1];
+      const lastDriverId = lastTrackingEntry?.driverId?.toString();
+      const lastStatus = lastTrackingEntry?.status;
+
+      // If the driverId is the same but the status is different, allow the update
+      if (driverId && lastDriverId && lastDriverId === driverId) {
+        if (lastStatus !== newStatus) {
+          // Allow update if status is different
+        } else {
+          // If the driverId and status are the same, don't update the tracking history
+          return this.buildParcelStatusChangePayload(parcel);
+        }
+      }
+    }
+
+    // Update status and other properties
     parcel.status = newStatus;
-    if (driverId)
+
+    if (driverId) {
       parcel.currentDriverId = new mongoose.Types.ObjectId(driverId);
-    if (warehouseId) parcel.currentDriverId = undefined;
+    } else if (warehouseId) {
+      parcel.currentDriverId = undefined;
+    }
 
     if (
       newStatus === ParcelStatus.Delivered &&
@@ -76,6 +115,7 @@ export class ParcelServiceMobile {
       parcel.paymentStatus = paymentStatus;
     }
 
+    // Add the new tracking history only if there's a relevant change
     parcel.trackingHistory.push(
       this.createTrackingHistory(newStatus, driverId, warehouseId)
     );
@@ -84,6 +124,7 @@ export class ParcelServiceMobile {
       parcel._id!,
       parcel
     );
+
     return updatedParcel
       ? this.buildParcelStatusChangePayload(updatedParcel)
       : null;
@@ -114,6 +155,7 @@ export class ParcelServiceMobile {
       parcel._id!,
       parcel
     );
+
     return updatedParcel
       ? this.buildParcelStatusChangePayload(updatedParcel)
       : null;
@@ -128,8 +170,10 @@ export class ParcelServiceMobile {
       action === ActionType.Local
         ? ParcelStatus.OutForDelivery
         : ParcelStatus.OnVehicle;
+
     return this.changeParcelStatus(parcelId, newStatus, driverId);
   }
+
   async submitDeliveryAction(
     _id: string,
     driverId: string,
@@ -140,9 +184,7 @@ export class ParcelServiceMobile {
     );
 
     const parcel = await this.parcelRepository.getParcelById(_id);
-    if (!parcel) {
-      throw new Error("Parcel not found");
-    }
+    if (!parcel) throw new Error("Parcel not found");
 
     if (
       [
@@ -152,7 +194,7 @@ export class ParcelServiceMobile {
       ].includes(parcel.status)
     ) {
       throw new Error(
-        "Delivered, Rescheduled or Cancelled parcels cannot be updated again"
+        "Delivered, Rescheduled, or Cancelled parcels cannot be updated again"
       );
     }
 
@@ -171,13 +213,7 @@ export class ParcelServiceMobile {
         throw new Error("Invalid action");
     }
 
-    const result = await this.changeParcelStatus(
-      parcel._id!.toString(),
-      newStatus,
-      driverId
-    );
-
-    return result;
+    return this.changeParcelStatus(parcel._id!.toString(), newStatus, driverId);
   }
 
   async markAllParcelsAsBorder(
@@ -187,6 +223,7 @@ export class ParcelServiceMobile {
       driverId,
       ActionType.LongHaul
     );
+
     const updatedParcels: ParcelStatusChangePayload[] = [];
 
     for (const parcel of parcels) {
@@ -196,6 +233,7 @@ export class ParcelServiceMobile {
           ParcelStatus.Border,
           driverId
         );
+
         if (updatedParcel) updatedParcels.push(updatedParcel);
       }
     }
@@ -214,6 +252,7 @@ export class ParcelServiceMobile {
   async getParcelByParcelId(parcelId: string): Promise<Parcel | null> {
     return this.parcelRepository.getParcelByParcelId(parcelId);
   }
+
   async getParcelById(parcelId: string): Promise<Parcel | null> {
     return this.parcelRepository.getParcelById(parcelId);
   }

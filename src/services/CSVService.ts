@@ -26,7 +26,6 @@ export class CSVService {
     countries: string[];
     cities: string[];
   }) {
-    console.log("Validating countries and cities...");
     return this.csvRepo.validateEntities(uniqueValues);
   }
 
@@ -34,13 +33,12 @@ export class CSVService {
     shipperId: string,
     warehouseId: string
   ): Promise<{ shipper: User; warehouse: Warehouse }> {
-    console.log(`Validating shipper with ID: ${shipperId}...`);
+  
     const shipper = await this.csvRepo.validateShipper(shipperId);
     if (!shipper) {
       throw new Error("Shipper not found.");
     }
 
-    console.log(`Validating warehouse with ID: ${warehouseId}...`);
     const warehouse = await this.csvRepo.validateWarehouse(warehouseId);
     if (!warehouse) {
       throw new Error("Initial warehouse not found.");
@@ -54,7 +52,6 @@ export class CSVService {
     warehouseId: any,
     driverId?: string
   ): TrackingHistory {
-    console.log(`Creating tracking history for status: ${newStatus}...`);
     return {
       status: newStatus,
       timestamp: new Date(),
@@ -66,7 +63,6 @@ export class CSVService {
   }
 
   private async generateParcelId(senderName: string): Promise<string> {
-    console.log(`Generating parcel ID for sender: ${senderName}...`);
     senderName = senderName.replace(/\s+/g, "").slice(0, 4).toUpperCase();
     const randomPartLength = 8 - senderName.length;
     let parcelId = "";
@@ -81,7 +77,6 @@ export class CSVService {
       }
     }
 
-    console.log(`Generated parcel ID: ${parcelId}`);
     return parcelId;
   }
 
@@ -94,13 +89,11 @@ export class CSVService {
     const errors: string[] = [];
 
     try {
-      console.log("Starting validation of shipper and warehouse...");
       const { shipper } = await this.validateShipperAndWarehouse(
         shipperId,
         initialWarehouseId
       );
 
-      console.log("Collecting and validating country and city IDs...");
       const countryIdsOrNames = parcels.map(
         (parcel) => parcel.receiver.countryId
       );
@@ -111,7 +104,6 @@ export class CSVService {
         cities: cityIdsOrNames,
       });
 
-      console.log("Starting parcel validation and creation...");
       const validatedParcels = await Promise.all(
         parcels.map(async (parcel, index) => {
           const country = countries.find(
@@ -171,13 +163,10 @@ export class CSVService {
       );
 
       if (errors.length > 0) {
-        console.log("Validation errors occurred:", errors);
         return { success: false, errors };
       }
 
-      console.log("All parcels validated successfully. Creating parcels...");
       await this.csvRepo.createParcels(validatedParcels);
-      console.log("Parcels created successfully.");
       return { success: true, errors: [] };
     } catch (error: any) {
       console.error("Error occurred during parcel creation:", error);

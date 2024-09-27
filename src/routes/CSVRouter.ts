@@ -29,7 +29,6 @@ router.post("/validate-entities", async (req, res) => {
 router.post("/create-parcels", async (req, res) => {
   try {
     const { parcels, shipperId, initialWarehouseId } = req.body;
-    console.log(req.body)
     if (!parcels || !Array.isArray(parcels)) {
       return res.status(400).send("Invalid parcel data.");
     }

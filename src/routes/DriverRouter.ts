@@ -40,7 +40,6 @@ router.get(
   authorize(PermissionsList.getInventory),
   async (req, res) => {
     try {
-      console.log("here");
       const driverId = req.user.id;
       const { type } = req.query;
 
@@ -62,15 +61,17 @@ router.post(
   async (req, res) => {
     try {
       const { parcelId, action } = req.body;
-      console.log(parcelId, action);
       const driverId = req.user.id;
       const updatedParcel = await parcelServiceMobile.scanParcel(
         parcelId,
         driverId,
         action as ActionType
       );
-      if (updatedParcel) {
-        res.status(200).json(updatedParcel);
+      if (updatedParcel && updatedParcel._id) {
+        const successParcel = await parcelServiceMobile.getParcelById(
+          updatedParcel._id.toString()
+        );
+        res.status(200).json(successParcel);
         emitParcelStatusChanged(updatedParcel);
         emitParcelInventoryChange(
           InventoryChange.AddedToInventory,
@@ -81,7 +82,6 @@ router.post(
             : InventoryType.LongHaul
         );
       } else {
-        console.error("notfound");
         res.status(400).json({ message: "Parcel not found or update failed." });
       }
     } catch (error: any) {
@@ -108,6 +108,14 @@ router.post(
         const successParcel = await parcelServiceMobile.getParcelById(id);
         res.status(200).json(successParcel);
         emitParcelStatusChanged(updatedParcel);
+        emitParcelInventoryChange(
+          InventoryChange.RemovedFromInventory,
+          driverId,
+          updatedParcel._id,
+          action === ActionType.Local
+            ? InventoryType.Local
+            : InventoryType.LongHaul
+        );
       } else {
         res.status(400).json({ message: "Parcel not found or update failed." });
       }
